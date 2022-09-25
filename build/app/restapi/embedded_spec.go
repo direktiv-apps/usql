@@ -167,11 +167,11 @@ func init() {
         },
         "x-direktiv-examples": [
           {
-            "content": "- id: usql\n  type: action\n  action:\n    function: usql\n    input: \n      connection: pg://direktiv:Nyjn_%28_6%7B2P%7DD8z18xH%3F%3AM1M@10.100.6.7:5432/direktiv\n      queries:\n      - query: select * from namespaces\n  catch:\n  - error: \"*\"",
+            "content": "- id: usql\n  type: action\n  action:\n    function: usql\n    secrets: [\"sqlconnection\"]\n    input: \n      connection: jq(.secrets.sqlconnection)\n      queries:\n      - query: select * from namespaces\n  catch:\n  - error: \"*\"",
             "title": "Simple Query"
           },
           {
-            "content": "- id: usql\n  type: action\n  action:\n    function: usql\n    input: \n      connection: pg://direktiv:Nyjn_%28_6%7B2P%7DD8z18xH%3F%3AM1M@10.100.6.7:5432/direktiv\n      queries:\n      - query: select * from namespaces where oid = :'ARG'\n        args:\n        - ARG=9f81ab5b-aa13-4393-bbd6-adce3d2da958\n  catch:\n  - error: \"*\"",
+            "content": "- id: usql\n  type: action\n  action:\n    function: usql\n    secrets: [\"sqlconnection\"]\n    input: \n      connection: jq(.secrets.sqlconnection)\n      queries:\n      - query: select * from namespaces where oid = :'ARG'\n        args:\n        - ARG=9f81ab5b-aa13-4393-bbd6-adce3d2da958\n  catch:\n  - error: \"*\"",
             "title": "Query with Arguments"
           }
         ],
@@ -344,11 +344,11 @@ func init() {
         },
         "x-direktiv-examples": [
           {
-            "content": "- id: usql\n  type: action\n  action:\n    function: usql\n    input: \n      connection: pg://direktiv:Nyjn_%28_6%7B2P%7DD8z18xH%3F%3AM1M@10.100.6.7:5432/direktiv\n      queries:\n      - query: select * from namespaces\n  catch:\n  - error: \"*\"",
+            "content": "- id: usql\n  type: action\n  action:\n    function: usql\n    secrets: [\"sqlconnection\"]\n    input: \n      connection: jq(.secrets.sqlconnection)\n      queries:\n      - query: select * from namespaces\n  catch:\n  - error: \"*\"",
             "title": "Simple Query"
           },
           {
-            "content": "- id: usql\n  type: action\n  action:\n    function: usql\n    input: \n      connection: pg://direktiv:Nyjn_%28_6%7B2P%7DD8z18xH%3F%3AM1M@10.100.6.7:5432/direktiv\n      queries:\n      - query: select * from namespaces where oid = :'ARG'\n        args:\n        - ARG=9f81ab5b-aa13-4393-bbd6-adce3d2da958\n  catch:\n  - error: \"*\"",
+            "content": "- id: usql\n  type: action\n  action:\n    function: usql\n    secrets: [\"sqlconnection\"]\n    input: \n      connection: jq(.secrets.sqlconnection)\n      queries:\n      - query: select * from namespaces where oid = :'ARG'\n        args:\n        - ARG=9f81ab5b-aa13-4393-bbd6-adce3d2da958\n  catch:\n  - error: \"*\"",
             "title": "Query with Arguments"
           }
         ],

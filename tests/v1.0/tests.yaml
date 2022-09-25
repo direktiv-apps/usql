@@ -6,20 +6,28 @@ functions:
 states:
 - id: state0
   type: action
+  catch:
+  - error: '*'
   action:
     function: usql
     input:
-      commands:
-      - command: Example of running usql
+      connection: jq(.secrets.sqlconnection)
+      queries:
+      - query: select * from namespaces
+    secrets:
+    - sqlconnection
   transition: state1
 - id: state1
   type: action
+  catch:
+  - error: '*'
   action:
     function: usql
     input:
-      commands:
-      - command: Example of running usql
-      files:
-      - data: Hello World
-        mode: "0755"
-        name: hello.txt
+      connection: jq(.secrets.sqlconnection)
+      queries:
+      - args:
+        - ARG=9f81ab5b-aa13-4393-bbd6-adce3d2da958
+        query: select * from namespaces where oid = :'ARG'
+    secrets:
+    - sqlconnection

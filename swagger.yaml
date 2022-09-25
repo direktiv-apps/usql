@@ -98,8 +98,9 @@ paths:
               type: action
               action:
                 function: usql
+                secrets: ["sqlconnection"]
                 input: 
-                  connection: pg://direktiv:Nyjn_%28_6%7B2P%7DD8z18xH%3F%3AM1M@10.100.6.7:5432/direktiv
+                  connection: jq(.secrets.sqlconnection)
                   queries:
                   - query: select * from namespaces
               catch:
@@ -110,8 +111,9 @@ paths:
               type: action
               action:
                 function: usql
+                secrets: ["sqlconnection"]
                 input: 
-                  connection: pg://direktiv:Nyjn_%28_6%7B2P%7DD8z18xH%3F%3AM1M@10.100.6.7:5432/direktiv
+                  connection: jq(.secrets.sqlconnection)
                   queries:
                   - query: select * from namespaces where oid = :'ARG'
                     args:
