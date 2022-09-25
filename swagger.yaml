@@ -1,21 +1,23 @@
 swagger: "2.0"
 info:
-  description: Usql client for Direktiv
+  description: Run usql in Direktiv
   title: usql
-  version: 1.0.0
+  version: "1.0"
   x-direktiv-meta:
-    container: direktiv/usql
+    container: gcr.io/direktiv/functions/usql
     maintainer: |-
-      [direktiv.io](https://www.direktiv.io)
+      [direktiv.io](https://www.direktiv.io) 
     issues: https://github.com/direktiv-apps/usql/issues
-    url: https://github.com/direktiv-apps/usql 
-    categories: 
+    url: https://github.com/direktiv-apps/usql  
+    categories:
     - database
     license: |-
       [Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0)
-    long-description: |-
-     [Usql](https://github.com/xo/usql) is a universal command-line interface for PostgreSQL, MySQL, Oracle Database, SQLite3, Microsoft SQL Server, and many other databases including NoSQL and non-relational databases. 
-     This service provides easy access to database from Direktiv and supports variables and interpolation as well. 
+    long-description: >-
+      [Usql](https://github.com/xo/usql) is a universal command-line interface for PostgreSQL, MySQL, Oracle Database, SQLite3, Microsoft SQL Server, and many other databases including NoSQL and non-relational databases. 
+      This service provides easy access to database from Direktiv and supports variables and interpolation as well. 
+
+      The connection string has to be URL-encoded!
 consumes:
 - application/json
 produces:
@@ -41,12 +43,14 @@ paths:
         - name: Direktiv-ActionID
           in: header
           type: string
+          default: development
           description: |
             direktiv action id is an UUID. 
             For development it can be set to 'development'
         - name: Direktiv-TempDir
           in: header
           type: string
+          default: /tmp
           description: |
             direktiv temp dir is the working directory for that request
             For development it can be set to e.g. '/tmp'
@@ -54,8 +58,7 @@ paths:
           in: body
           schema:
             type: object
-            required:
-              - connection
+            required: ["connection"]
             properties:
               connection:
                 type: string
@@ -82,44 +85,42 @@ paths:
                       example: ARG=myarg
                       items: 
                         type: string
+      # direktiv code generation is configured here
       x-direktiv-function: |-
         functions:
-          - id: usql
-            image: direktiv/usql
-            type: knative-workflow
+        - id: usql
+          image: gcr.io/direktiv/functions/usql:1.0
+          type: knative-workflow
       x-direktiv-examples:
-        - title: Basic
+        - title: Simple Query
           content: |-
-            - id: insert 
-                 type: action
-                 action:
-                   function: usql
-                   input:
-                     connection: pg://direktiv:rbRIw3I6%7B5%29%5Dda%287m.R_%5D%3Eh%5D@192.168.0.177:5432
-                     queries:
-                       - query: select * from mydata
-        - title: Variables
+            - id: usql
+              type: action
+              action:
+                function: usql
+                input: 
+                  connection: pg://direktiv:Nyjn_%28_6%7B2P%7DD8z18xH%3F%3AM1M@10.100.6.7:5432/direktiv
+                  queries:
+                  - query: select * from namespaces
+              catch:
+              - error: "*"
+        - title: Query with Arguments
           content: |-
-            - id: insert 
-                 type: action
-                 action:
-                   function: usql
-                   input:
-                     connection: pg://direktiv:rbRIw3I6%7B5%29%5Dda%287m.R_%5D%3Eh%5D@192.168.0.177:5432
-                     queries:
-                       - query: select * from mydata where id = :'ID'
-                         args:
-                         - ID=3a7ff4a5-fadb-4d41-97bb-86917cdad46a
-        - title: Insert
-          content: |-
-            - id: insert 
-                 type: action
-                 action:
-                   function: usql
-                   input:
-                     connection: pg://direktiv:rbRIw3I6%7B5%29%5Dda%287m.R_%5D%3Eh%5D@192.168.0.177:5432
-                     queries:
-                       - query: insert into testme values ('hello world')
+            - id: usql
+              type: action
+              action:
+                function: usql
+                input: 
+                  connection: pg://direktiv:Nyjn_%28_6%7B2P%7DD8z18xH%3F%3AM1M@10.100.6.7:5432/direktiv
+                  queries:
+                  - query: select * from namespaces where oid = :'ARG'
+                    args:
+                    - ARG=9f81ab5b-aa13-4393-bbd6-adce3d2da958
+              catch:
+              - error: "*"
+      x-direktiv-secrets:
+        - name: sqlconnection
+          description: The database connection string
       x-direktiv:  
         cmds:
         - action: foreach
@@ -127,9 +128,10 @@ paths:
           exec: |-
             usql {{ .Body.Connection }} -c "{{ .Item.Query }}" -J --set SHOW_HOST_INFORMATION=false 
             {{- range .Item.Args }} --set={{.}} {{- end}}
-        output: |       
+          print: false
+        output: |
           {
-            "queries": {{  index . 0 | toJson }}
+            "usql": {{ index . 0 | toJson }}
           }
       x-direktiv-errors:
         io.direktiv.command.error: Command execution failed
@@ -137,29 +139,21 @@ paths:
         io.direktiv.ri.error: Can not create information object from request
       responses:
         200:
-          description: The service responds with one JSON payload per SQL query. 
+          description: List of executed sql commands.
           examples:
-            query:
-              queries:
-              - result:
-                - id: c5c20864-2c1b-47e2-94ab-185a3e8cf9ee
-                  name: 123
-                success: true
-              - result: INSERT 1
-                success: true
+            usql:
+            - result:
+              - name: world
+                oid: 9f81ab5b-aa13-4393-bbd6-adce3d2da958
+                updated_at: '2022-09-12T09:34:27.449133Z'
+              - created_at: '2022-09-22T14:48:39.699932Z'
+                name: hello
+                oid: 4b48243f-bf78-455d-858a-bbf0d6c9d654
+                updated_at: '2022-09-22T14:48:39.699933Z'
+              success: true
           schema:
             type: object
-            properties:
-              queries:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    result:
-                      type: object
-                      additionalProperties: {}
-                    success:
-                      type: boolean
+            additionalProperties: {}
         default:
           description: generic error response
           headers:

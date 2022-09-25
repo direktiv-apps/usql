@@ -2,13 +2,16 @@ package operations
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"sync"
 
 	"github.com/direktiv/apps/go/pkg/apps"
 	"github.com/go-openapi/runtime/middleware"
-	"github.com/go-openapi/strfmt"
+	// custom function imports
+	// end
 
-	"usql/models"
+	"app/models"
 )
 
 const (
@@ -31,20 +34,28 @@ const (
 
 type accParams struct {
 	PostParams
-	Commands []interface{}
+	Commands    []interface{}
+	DirektivDir string
 }
 
 type accParamsTemplate struct {
-	PostBody
-	Commands []interface{}
+	models.PostParamsBody
+	Commands    []interface{}
+	DirektivDir string
+}
+
+type ctxInfo struct {
+	cf        context.CancelFunc
+	cancelled bool
 }
 
 func PostDirektivHandle(params PostParams) middleware.Responder {
-	resp := &PostOKBody{}
+	var resp interface{}
 
 	var (
-		err error
-		ret interface{}
+		err  error
+		ret  interface{}
+		cont bool
 	)
 
 	ri, err := apps.RequestinfoFromRequest(params.HTTPRequest)
@@ -53,8 +64,13 @@ func PostDirektivHandle(params PostParams) middleware.Responder {
 	}
 
 	ctx, cancel := context.WithCancel(params.HTTPRequest.Context())
-	sm.Store(*params.DirektivActionID, cancel)
-	defer sm.Delete(params.DirektivActionID)
+
+	sm.Store(*params.DirektivActionID, &ctxInfo{
+		cancel,
+		false,
+	})
+
+	defer sm.Delete(*params.DirektivActionID)
 
 	var responses []interface{}
 
@@ -62,13 +78,31 @@ func PostDirektivHandle(params PostParams) middleware.Responder {
 	accParams := accParams{
 		params,
 		nil,
+		ri.Dir(),
 	}
-
 	ret, err = runCommand0(ctx, accParams, ri)
+
 	responses = append(responses, ret)
 
-	if err != nil && true {
+	// if foreach returns an error there is no continue
+	//
+	// cont = false
+	//
+
+	if err != nil && !cont {
+
 		errName := cmdErr
+
+		// if the delete function added the cancel tag
+		ci, ok := sm.Load(*params.DirektivActionID)
+		if ok {
+			cinfo, ok := ci.(*ctxInfo)
+			if ok && cinfo.cancelled {
+				errName = "direktiv.actionCancelled"
+				err = fmt.Errorf("action got cancel request")
+			}
+		}
+
 		return generateError(errName, err)
 	}
 
@@ -76,7 +110,7 @@ func PostDirektivHandle(params PostParams) middleware.Responder {
 	accParams.Commands = paramsCollector
 
 	s, err := templateString(`{
-  "queries": {{  index . 0 | toJson }}
+  "usql": {{ index . 0 | toJson }}
 }
 `, responses)
 	if err != nil {
@@ -85,11 +119,7 @@ func PostDirektivHandle(params PostParams) middleware.Responder {
 
 	responseBytes := []byte(s)
 
-	// validate
-
-	resp.UnmarshalBinary(responseBytes)
-	err = resp.Validate(strfmt.Default)
-
+	err = json.Unmarshal(responseBytes, &resp)
 	if err != nil {
 		return generateError(outErr, err)
 	}
@@ -100,21 +130,25 @@ func PostDirektivHandle(params PostParams) middleware.Responder {
 // foreach command
 type LoopStruct0 struct {
 	accParams
-	Item interface{}
+	Item        interface{}
+	DirektivDir string
 }
 
 func runCommand0(ctx context.Context,
 	params accParams, ri *apps.RequestInfo) ([]map[string]interface{}, error) {
 
-	ri.Logger().Infof("foreach command over .Queries")
-
 	var cmds []map[string]interface{}
+
+	if params.Body == nil {
+		return cmds, nil
+	}
 
 	for a := range params.Body.Queries {
 
 		ls := &LoopStruct0{
 			params,
 			params.Body.Queries[a],
+			params.DirektivDir,
 		}
 
 		cmd, err := templateString(`usql {{ .Body.Connection }} -c "{{ .Item.Query }}" -J --set SHOW_HOST_INFORMATION=false 
@@ -128,7 +162,8 @@ func runCommand0(ctx context.Context,
 		}
 
 		silent := convertTemplateToBool("<no value>", ls, false)
-		print := convertTemplateToBool("<no value>", ls, true)
+		print := convertTemplateToBool("false", ls, true)
+		cont := convertTemplateToBool("<no value>", ls, false)
 		output := ""
 
 		envs := []string{}
@@ -139,7 +174,13 @@ func runCommand0(ctx context.Context,
 			ir[successKey] = false
 			ir[resultKey] = err.Error()
 			cmds = append(cmds, ir)
-			continue
+
+			if cont {
+				continue
+			}
+
+			return cmds, err
+
 		}
 		cmds = append(cmds, r)
 

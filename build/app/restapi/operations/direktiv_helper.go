@@ -61,6 +61,7 @@ func templateString(tmplIn string, data interface{}) (string, error) {
 		"deref":      deref,
 		"file64":     file64,
 	}).Parse(tmplIn)
+
 	if err != nil {
 		return "", err
 	}
@@ -136,16 +137,24 @@ func runCmd(ctx context.Context, cmdString string, envs []string,
 	cmd.Stdout = mwStdout
 	cmd.Stderr = mwStdErr
 	cmd.Dir = ri.Dir()
-	cmd.Env = append(os.Environ(), envs...)
+
+	// change HOME
+	curEnvs := append(os.Environ(), fmt.Sprintf("HOME=%s", ri.Dir()))
+	cmd.Env = append(curEnvs, envs...)
 
 	if print {
 		ri.Logger().Infof("running command %v", cmd)
 	}
 
 	err = cmd.Run()
-
 	if err != nil {
 		ir[resultKey] = string(oerr.String())
+		if oerr.String() == "" {
+			ir[resultKey] = err.Error()
+		} else {
+			ri.Logger().Errorf(oerr.String())
+			err = fmt.Errorf(oerr.String())
+		}
 		return ir, err
 	}
 
@@ -165,7 +174,7 @@ func runCmd(ctx context.Context, cmdString string, envs []string,
 	var rj interface{}
 	err = json.Unmarshal(b, &rj)
 	if err != nil {
-		rj = apps.ToJSON(o.String())
+		rj = apps.ToJSON(string(b))
 	}
 	ir[resultKey] = rj
 
@@ -173,9 +182,9 @@ func runCmd(ctx context.Context, cmdString string, envs []string,
 
 }
 
-func doHttpRequest(method, u, user, pwd string,
-	headers map[string]string,
-	insecure, errNo200 bool, data []byte) (map[string]interface{}, error) {
+func doHttpRequest(debug bool, method, u, user, pwd string,
+	headers map[string]string, insecure, errNo200 bool,
+	data []byte) (map[string]interface{}, error) {
 
 	ir := make(map[string]interface{})
 	ir[successKey] = false
@@ -199,6 +208,7 @@ func doHttpRequest(method, u, user, pwd string,
 		ir[resultKey] = err.Error()
 		return ir, err
 	}
+	req.Close = true
 
 	for k, v := range headers {
 		req.Header.Add(k, v)
@@ -219,6 +229,15 @@ func doHttpRequest(method, u, user, pwd string,
 	client := &http.Client{
 		Jar:       jar,
 		Transport: cr,
+	}
+
+	if debug {
+		fmt.Printf("method: %s, insecure: %v\n", method, insecure)
+		fmt.Printf("url: %s\n", req.URL.String())
+		fmt.Println("Headers:")
+		for k, v := range headers {
+			fmt.Printf("%v = %v\n", k, v)
+		}
 	}
 
 	resp, err := client.Do(req)

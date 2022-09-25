@@ -10,13 +10,13 @@ import (
 
 	"github.com/go-openapi/runtime"
 
-	"usql/models"
+	"app/models"
 )
 
 // PostOKCode is the HTTP code returned for type PostOK
 const PostOKCode int = 200
 
-/*PostOK nice greeting
+/*PostOK List of executed sql commands.
 
 swagger:response postOK
 */
@@ -25,7 +25,7 @@ type PostOK struct {
 	/*
 	  In: Body
 	*/
-	Payload *PostOKBody `json:"body,omitempty"`
+	Payload interface{} `json:"body,omitempty"`
 }
 
 // NewPostOK creates PostOK with default headers values
@@ -35,13 +35,13 @@ func NewPostOK() *PostOK {
 }
 
 // WithPayload adds the payload to the post o k response
-func (o *PostOK) WithPayload(payload *PostOKBody) *PostOK {
+func (o *PostOK) WithPayload(payload interface{}) *PostOK {
 	o.Payload = payload
 	return o
 }
 
 // SetPayload sets the payload to the post o k response
-func (o *PostOK) SetPayload(payload *PostOKBody) {
+func (o *PostOK) SetPayload(payload interface{}) {
 	o.Payload = payload
 }
 
@@ -49,11 +49,9 @@ func (o *PostOK) SetPayload(payload *PostOKBody) {
 func (o *PostOK) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
 	rw.WriteHeader(200)
-	if o.Payload != nil {
-		payload := o.Payload
-		if err := producer.Produce(rw, payload); err != nil {
-			panic(err) // let the recovery middleware deal with this
-		}
+	payload := o.Payload
+	if err := producer.Produce(rw, payload); err != nil {
+		panic(err) // let the recovery middleware deal with this
 	}
 }
 

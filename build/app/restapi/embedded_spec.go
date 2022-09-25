@@ -29,16 +29,18 @@ func init() {
   ],
   "swagger": "2.0",
   "info": {
-    "description": "Usql client for Direktiv",
+    "description": "Run usql in Direktiv",
     "title": "usql",
-    "version": "1.0.0",
+    "version": "1.0",
     "x-direktiv-meta": {
-      "category": "Database",
-      "container": "direktiv/usql",
+      "categories": [
+        "database"
+      ],
+      "container": "gcr.io/direktiv/functions/usql",
       "issues": "https://github.com/direktiv-apps/usql/issues",
       "license": "[Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0)",
-      "long-description": "[Usql](https://github.com/xo/usql) is a universal command-line interface for PostgreSQL, MySQL, Oracle Database, SQLite3, Microsoft SQL Server, and many other databases including NoSQL and non-relational databases. \nThis service provides easy access to database from Direktiv and supports variables and interpolation as well. ",
-      "maintainer": "[direktiv.io](https://www.direktiv.io)",
+      "long-description": "[Usql](https://github.com/xo/usql) is a universal command-line interface for PostgreSQL, MySQL, Oracle Database, SQLite3, Microsoft SQL Server, and many other databases including NoSQL and non-relational databases.  This service provides easy access to database from Direktiv and supports variables and interpolation as well. \nThe connection string has to be URL-encoded!",
+      "maintainer": "[direktiv.io](https://www.direktiv.io) ",
       "url": "https://github.com/direktiv-apps/usql"
     }
   },
@@ -48,12 +50,14 @@ func init() {
         "parameters": [
           {
             "type": "string",
+            "default": "development",
             "description": "direktiv action id is an UUID. \nFor development it can be set to 'development'\n",
             "name": "Direktiv-ActionID",
             "in": "header"
           },
           {
             "type": "string",
+            "default": "/tmp",
             "description": "direktiv temp dir is the working directory for that request\nFor development it can be set to e.g. '/tmp'\n",
             "name": "Direktiv-TempDir",
             "in": "header"
@@ -104,43 +108,30 @@ func init() {
         ],
         "responses": {
           "200": {
-            "description": "nice greeting",
+            "description": "List of executed sql commands.",
             "schema": {
               "type": "object",
-              "properties": {
-                "queries": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "result": {
-                        "type": "object",
-                        "additionalProperties": false
-                      },
-                      "success": {
-                        "type": "boolean"
-                      }
+              "additionalProperties": false
+            },
+            "examples": {
+              "usql": [
+                {
+                  "result": [
+                    {
+                      "name": "world",
+                      "oid": "9f81ab5b-aa13-4393-bbd6-adce3d2da958",
+                      "updated_at": "2022-09-12T09:34:27.449133Z"
+                    },
+                    {
+                      "created_at": "2022-09-22T14:48:39.699932Z",
+                      "name": "hello",
+                      "oid": "4b48243f-bf78-455d-858a-bbf0d6c9d654",
+                      "updated_at": "2022-09-22T14:48:39.699933Z"
                     }
-                  }
+                  ],
+                  "success": true
                 }
-              },
-              "example": {
-                "queries": [
-                  {
-                    "result": [
-                      {
-                        "id": 123,
-                        "name": "John"
-                      }
-                    ],
-                    "success": true
-                  },
-                  {
-                    "result": "INSERT 1",
-                    "success": true
-                  }
-                ]
-              }
+              ]
             }
           },
           "default": {
@@ -163,10 +154,11 @@ func init() {
             {
               "action": "foreach",
               "exec": "usql {{ .Body.Connection }} -c \"{{ .Item.Query }}\" -J --set SHOW_HOST_INFORMATION=false \n{{- range .Item.Args }} --set={{.}} {{- end}}",
-              "loop": ".Queries"
+              "loop": ".Queries",
+              "print": false
             }
           ],
-          "output": "{\n  \"queries\": {{  index . 0 | toJson }}\n}\n"
+          "output": "{\n  \"usql\": {{ index . 0 | toJson }}\n}\n"
         },
         "x-direktiv-errors": {
           "io.direktiv.command.error": "Command execution failed",
@@ -175,11 +167,21 @@ func init() {
         },
         "x-direktiv-examples": [
           {
-            "content": "- id: query\n     type: action\n     action:\n       function: usql",
-            "title": "Basic"
+            "content": "- id: usql\n  type: action\n  action:\n    function: usql\n    input: \n      connection: pg://direktiv:Nyjn_%28_6%7B2P%7DD8z18xH%3F%3AM1M@10.100.6.7:5432/direktiv\n      queries:\n      - query: select * from namespaces\n  catch:\n  - error: \"*\"",
+            "title": "Simple Query"
+          },
+          {
+            "content": "- id: usql\n  type: action\n  action:\n    function: usql\n    input: \n      connection: pg://direktiv:Nyjn_%28_6%7B2P%7DD8z18xH%3F%3AM1M@10.100.6.7:5432/direktiv\n      queries:\n      - query: select * from namespaces where oid = :'ARG'\n        args:\n        - ARG=9f81ab5b-aa13-4393-bbd6-adce3d2da958\n  catch:\n  - error: \"*\"",
+            "title": "Query with Arguments"
           }
         ],
-        "x-direktiv-function": "functions:\n  - id: usql\n    image: direktiv/usql\n    type: knative-workflow"
+        "x-direktiv-function": "functions:\n- id: usql\n  image: gcr.io/direktiv/functions/usql:1.0\n  type: knative-workflow",
+        "x-direktiv-secrets": [
+          {
+            "description": "The database connection string",
+            "name": "sqlconnection"
+          }
+        ]
       },
       "delete": {
         "parameters": [
@@ -240,16 +242,18 @@ func init() {
   ],
   "swagger": "2.0",
   "info": {
-    "description": "Usql client for Direktiv",
+    "description": "Run usql in Direktiv",
     "title": "usql",
-    "version": "1.0.0",
+    "version": "1.0",
     "x-direktiv-meta": {
-      "category": "Database",
-      "container": "direktiv/usql",
+      "categories": [
+        "database"
+      ],
+      "container": "gcr.io/direktiv/functions/usql",
       "issues": "https://github.com/direktiv-apps/usql/issues",
       "license": "[Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0)",
-      "long-description": "[Usql](https://github.com/xo/usql) is a universal command-line interface for PostgreSQL, MySQL, Oracle Database, SQLite3, Microsoft SQL Server, and many other databases including NoSQL and non-relational databases. \nThis service provides easy access to database from Direktiv and supports variables and interpolation as well. ",
-      "maintainer": "[direktiv.io](https://www.direktiv.io)",
+      "long-description": "[Usql](https://github.com/xo/usql) is a universal command-line interface for PostgreSQL, MySQL, Oracle Database, SQLite3, Microsoft SQL Server, and many other databases including NoSQL and non-relational databases.  This service provides easy access to database from Direktiv and supports variables and interpolation as well. \nThe connection string has to be URL-encoded!",
+      "maintainer": "[direktiv.io](https://www.direktiv.io) ",
       "url": "https://github.com/direktiv-apps/usql"
     }
   },
@@ -259,12 +263,14 @@ func init() {
         "parameters": [
           {
             "type": "string",
+            "default": "development",
             "description": "direktiv action id is an UUID. \nFor development it can be set to 'development'\n",
             "name": "Direktiv-ActionID",
             "in": "header"
           },
           {
             "type": "string",
+            "default": "/tmp",
             "description": "direktiv temp dir is the working directory for that request\nFor development it can be set to e.g. '/tmp'\n",
             "name": "Direktiv-TempDir",
             "in": "header"
@@ -273,63 +279,36 @@ func init() {
             "name": "body",
             "in": "body",
             "schema": {
-              "type": "object",
-              "required": [
-                "connection"
-              ],
-              "properties": {
-                "connection": {
-                  "description": "Connection string for sql commands. This will be used for all commands and has to be URL-encoded.",
-                  "type": "string",
-                  "example": "pg://myuser:mypwd@MYDATABAESERVER:5432"
-                },
-                "queries": {
-                  "description": "List of sql commands. Commands can use interpolation:\u003cbr/\u003e query: select * from table where id = :'ID'\u003cbr/\u003e args: ID=123\n",
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/definitions/QueriesItems0"
-                  },
-                  "example": {
-                    "args": [
-                      "KEY=1"
-                    ],
-                    "query": "select * from mytable where key = :'KEY'"
-                  }
-                }
-              }
+              "$ref": "#/definitions/postParamsBody"
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "nice greeting",
+            "description": "List of executed sql commands.",
             "schema": {
               "type": "object",
-              "properties": {
-                "queries": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/definitions/QueriesItems0"
-                  }
+              "additionalProperties": false
+            },
+            "examples": {
+              "usql": [
+                {
+                  "result": [
+                    {
+                      "name": "world",
+                      "oid": "9f81ab5b-aa13-4393-bbd6-adce3d2da958",
+                      "updated_at": "2022-09-12T09:34:27.449133Z"
+                    },
+                    {
+                      "created_at": "2022-09-22T14:48:39.699932Z",
+                      "name": "hello",
+                      "oid": "4b48243f-bf78-455d-858a-bbf0d6c9d654",
+                      "updated_at": "2022-09-22T14:48:39.699933Z"
+                    }
+                  ],
+                  "success": true
                 }
-              },
-              "example": {
-                "queries": [
-                  {
-                    "result": [
-                      {
-                        "id": 123,
-                        "name": "John"
-                      }
-                    ],
-                    "success": true
-                  },
-                  {
-                    "result": "INSERT 1",
-                    "success": true
-                  }
-                ]
-              }
+              ]
             }
           },
           "default": {
@@ -352,10 +331,11 @@ func init() {
             {
               "action": "foreach",
               "exec": "usql {{ .Body.Connection }} -c \"{{ .Item.Query }}\" -J --set SHOW_HOST_INFORMATION=false \n{{- range .Item.Args }} --set={{.}} {{- end}}",
-              "loop": ".Queries"
+              "loop": ".Queries",
+              "print": false
             }
           ],
-          "output": "{\n  \"queries\": {{  index . 0 | toJson }}\n}\n"
+          "output": "{\n  \"usql\": {{ index . 0 | toJson }}\n}\n"
         },
         "x-direktiv-errors": {
           "io.direktiv.command.error": "Command execution failed",
@@ -364,11 +344,21 @@ func init() {
         },
         "x-direktiv-examples": [
           {
-            "content": "- id: query\n     type: action\n     action:\n       function: usql",
-            "title": "Basic"
+            "content": "- id: usql\n  type: action\n  action:\n    function: usql\n    input: \n      connection: pg://direktiv:Nyjn_%28_6%7B2P%7DD8z18xH%3F%3AM1M@10.100.6.7:5432/direktiv\n      queries:\n      - query: select * from namespaces\n  catch:\n  - error: \"*\"",
+            "title": "Simple Query"
+          },
+          {
+            "content": "- id: usql\n  type: action\n  action:\n    function: usql\n    input: \n      connection: pg://direktiv:Nyjn_%28_6%7B2P%7DD8z18xH%3F%3AM1M@10.100.6.7:5432/direktiv\n      queries:\n      - query: select * from namespaces where oid = :'ARG'\n        args:\n        - ARG=9f81ab5b-aa13-4393-bbd6-adce3d2da958\n  catch:\n  - error: \"*\"",
+            "title": "Query with Arguments"
           }
         ],
-        "x-direktiv-function": "functions:\n  - id: usql\n    image: direktiv/usql\n    type: knative-workflow"
+        "x-direktiv-function": "functions:\n- id: usql\n  image: gcr.io/direktiv/functions/usql:1.0\n  type: knative-workflow",
+        "x-direktiv-secrets": [
+          {
+            "description": "The database connection string",
+            "name": "sqlconnection"
+          }
+        ]
       },
       "delete": {
         "parameters": [
@@ -391,18 +381,6 @@ func init() {
     }
   },
   "definitions": {
-    "QueriesItems0": {
-      "type": "object",
-      "properties": {
-        "result": {
-          "type": "object",
-          "additionalProperties": false
-        },
-        "success": {
-          "type": "boolean"
-        }
-      }
-    },
     "direktivFile": {
       "type": "object",
       "x-go-type": {
@@ -426,6 +404,50 @@ func init() {
           "type": "string"
         }
       }
+    },
+    "postParamsBody": {
+      "type": "object",
+      "required": [
+        "connection"
+      ],
+      "properties": {
+        "connection": {
+          "description": "Connection string for sql commands. This will be used for all commands and has to be URL-encoded.",
+          "type": "string",
+          "example": "pg://myuser:mypwd@MYDATABAESERVER:5432"
+        },
+        "queries": {
+          "description": "List of sql commands. Commands can use interpolation:\u003cbr/\u003e query: select * from table where id = :'ID'\u003cbr/\u003e args: ID=123\n",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/postParamsBodyQueriesItems"
+          },
+          "example": {
+            "args": [
+              "KEY=1"
+            ],
+            "query": "select * from mytable where key = :'KEY'"
+          }
+        }
+      },
+      "x-go-gen-location": "operations"
+    },
+    "postParamsBodyQueriesItems": {
+      "type": "object",
+      "properties": {
+        "args": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "example": "ARG=myarg"
+        },
+        "query": {
+          "type": "string",
+          "example": "select * from table where value = :'ARG'"
+        }
+      },
+      "x-go-gen-location": "operations"
     }
   }
 }`))

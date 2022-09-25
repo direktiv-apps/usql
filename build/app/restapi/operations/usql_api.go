@@ -51,7 +51,7 @@ func NewUsqlAPI(spec *loads.Document) *UsqlAPI {
 	}
 }
 
-/*UsqlAPI Usql client for Direktiv */
+/*UsqlAPI Run usql in Direktiv */
 type UsqlAPI struct {
 	spec            *loads.Document
 	context         *middleware.Context
