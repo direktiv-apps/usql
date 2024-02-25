@@ -1,0 +1,159 @@
+openapi: 3.0.1
+info:
+  title: usql
+  description: Run usql in Direktiv
+  version: "1.0"
+  x-direktiv-meta:
+    container: gcr.io/direktiv/functions/usql
+    maintainer: "[direktiv.io](https://www.direktiv.io) "
+    issues: https://github.com/direktiv-apps/usql/issues
+    url: https://github.com/direktiv-apps/usql
+    categories:
+    - database
+    license: "[Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0)"
+    long-description: "[Usql](https://github.com/xo/usql) is a universal command-line\
+      \ interface for PostgreSQL, MySQL, Oracle Database, SQLite3, Microsoft SQL Server,\
+      \ and many other databases including NoSQL and non-relational databases.  This\
+      \ service provides easy access to database from Direktiv and supports variables\
+      \ and interpolation as well. \nThe connection string has to be URL-encoded!"
+servers:
+- url: /
+paths:
+  /:
+    post:
+      parameters:
+      - name: Direktiv-ActionID
+        in: header
+        description: "direktiv action id is an UUID. \nFor development it can be set\
+          \ to 'development'\n"
+        schema:
+          type: string
+          default: development
+      - name: Direktiv-TempDir
+        in: header
+        description: |
+          direktiv temp dir is the working directory for that request
+          For development it can be set to e.g. '/tmp'
+        schema:
+          type: string
+          default: /tmp
+      requestBody:
+        content:
+          application/json:
+            schema:
+              required:
+              - connection
+              type: object
+              properties:
+                connection:
+                  type: string
+                  description: Connection string for sql commands. This will be used
+                    for all commands and has to be URL-encoded.
+                  example: pg://myuser:mypwd@MYDATABAESERVER:5432
+                queries:
+                  type: array
+                  description: |
+                    List of sql commands. Commands can use interpolation:<br/> query: select * from table where id = :'ID'<br/> args: ID=123
+                  example:
+                    query: select * from mytable where key = :'KEY'
+                    args:
+                    - KEY=1
+                  items:
+                    type: object
+                    properties:
+                      query:
+                        type: string
+                        example: select * from table where value = :'ARG'
+                      args:
+                        type: array
+                        example: ARG=myarg
+                        items:
+                          type: string
+        required: false
+      responses:
+        "200":
+          description: List of executed sql commands.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: object
+            usql:
+              example:
+              - result:
+                - name: world
+                  oid: 9f81ab5b-aa13-4393-bbd6-adce3d2da958
+                  updated_at: 2022-09-12T09:34:27.449133Z
+                - created_at: 2022-09-22T14:48:39.699932Z
+                  name: hello
+                  oid: 4b48243f-bf78-455d-858a-bbf0d6c9d654
+                  updated_at: 2022-09-22T14:48:39.699933Z
+                success: true
+        default:
+          description: generic error response
+          headers:
+            Direktiv-ErrorMessage:
+              schema:
+                type: string
+            Direktiv-ErrorCode:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/error'
+      x-direktiv-function: |-
+        functions:
+        - id: usql
+          image: gcr.io/direktiv/functions/usql:1.0
+          type: knative-workflow
+      x-direktiv-examples:
+      - title: Simple Query
+        content: "- id: usql\n  type: action\n  action:\n    function: usql\n    secrets:\
+          \ [\"sqlconnection\"]\n    input: \n      connection: jq(.secrets.sqlconnection)\n\
+          \      queries:\n      - query: select * from namespaces\n  catch:\n  -\
+          \ error: \"*\""
+      - title: Query with Arguments
+        content: "- id: usql\n  type: action\n  action:\n    function: usql\n    secrets:\
+          \ [\"sqlconnection\"]\n    input: \n      connection: jq(.secrets.sqlconnection)\n\
+          \      queries:\n      - query: select * from namespaces where oid = :'ARG'\n\
+          \        args:\n        - ARG=9f81ab5b-aa13-4393-bbd6-adce3d2da958\n  catch:\n\
+          \  - error: \"*\""
+      x-direktiv-secrets:
+      - name: sqlconnection
+        description: The database connection string
+      x-direktiv:
+        cmds:
+        - action: foreach
+          loop: .Queries
+          exec: "usql {{ .Body.Connection }} -c \"{{ .Item.Query }}\" -J --set SHOW_HOST_INFORMATION=false\
+            \ \n{{- range .Item.Args }} --set={{.}} {{- end}}"
+          print: false
+        output: |
+          {
+            "usql": {{ index . 0 | toJson }}
+          }
+      x-direktiv-errors:
+        io.direktiv.command.error: Command execution failed
+        io.direktiv.output.error: Template error for output generation of the service
+        io.direktiv.ri.error: Can not create information object from request
+      x-codegen-request-body-name: body
+components:
+  schemas:
+    direktivFile:
+      type: object
+      x-go-type:
+        type: DirektivFile
+        import:
+          package: github.com/direktiv/apps/go/pkg/apps
+    error:
+      required:
+      - errorCode
+      - errorMessage
+      type: object
+      properties:
+        errorCode:
+          type: string
+        errorMessage:
+          type: string
